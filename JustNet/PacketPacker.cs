@@ -5,6 +5,15 @@
  * The project is under BSD 3-Clause License. Please see the LICENSE.txt 
 */
 
+/*
+ * Packet structure
+ * 
+ * Source Client ID
+ * PacketType
+ * Actual data
+ * 
+*/
+
 #pragma warning disable CS8618 // Non-nullable variable must contain a non-null value when exiting constructor. Consider declaring it as nullable
 
 namespace JustNet
@@ -15,23 +24,15 @@ namespace JustNet
     using PacketType = NetworkRunner.Constant.PacketType;
 
     public static partial class PacketPacker
-    {
-        /*
-         * Packet structure
-         * 
-         * Header -> PacketType + Source Client ID
-         * Data -> Actual data
-         * 
-         */
-
+    {        
         internal static uint ReadBufferSize = 1024;
 
-        internal static byte[] PackOutgoingPacket(uint sourceClientID, WritablePacket writablePacket)
+        internal static byte[] PackOutgoingPacket(WritablePacket writablePacket)
         {
             List<byte> data = new List<byte>();
 
-            data.AddRange(BitConverter.GetBytes((char)writablePacket.PacketType));
-            data.AddRange(BitConverter.GetBytes(sourceClientID));
+            data.AddRange(BitConverter.GetBytes(writablePacket.SourceClientID));
+            data.AddRange(BitConverter.GetBytes((char)writablePacket.PacketType));            
             data.AddRange(writablePacket.ToArray());
 
             return data.ToArray();
@@ -39,60 +40,72 @@ namespace JustNet
 
         internal static ReadablePacket PackIncomingPacket(int readBytesCount, byte[] data)
         {
-            PacketType packetType = (PacketType)BitConverter.ToChar(data, 0);            
             uint clientID = BitConverter.ToUInt32(data, sizeof(char));
+            PacketType packetType = (PacketType)BitConverter.ToChar(data, 0);                        
             const int read = sizeof(char) + sizeof(uint);
             ArraySegment<byte> remained = new ArraySegment<byte>(data, read, readBytesCount - read);
 
             return new ReadablePacket(packetType, clientID, remained.ToArray());
-        }
+        }       
 
-        /*public static ReadablePacket GetReadablePacket(uint sourceClientID, byte[] data)
-        {
-            return new ReadablePacket(PacketType.CUSTOM, sourceClientID, data);
-        }
+        public static WritablePacket GetWritablePacket(uint sourceClientID) => new WritablePacket(PacketType.CUSTOM, sourceClientID);
 
-        public static ReadablePacket GetReadablePacket(uint sourceClientID, byte[] data, int startReadPosition)
-        {
-            return new ReadablePacket(PacketType.CUSTOM, sourceClientID, data, startReadPosition);
-        }*/
-
-        public static WritablePacket GetWritablePacket()
-        {
-            return new WritablePacket(PacketType.CUSTOM);
-        }
-
-        public static WritablePacket GetWritablePacket(byte[] data)
-        {
-            return new WritablePacket(PacketType.CUSTOM, data);
-        }
+        public static WritablePacket GetWritablePacket(uint sourceClientID, byte[] data) => new WritablePacket(PacketType.CUSTOM, sourceClientID, data);
     }
 
     public static partial class PacketPacker
     {
-        public class WritablePacket : IDisposable
+        public abstract class Packet : IDisposable
         {
+            public readonly uint SourceClientID;
+
             internal PacketType PacketType;
 
-            private List<byte> buffer;
+            protected bool disposed = false;
 
-            private bool disposed = false;
+            internal Packet(PacketType packetType, uint sourceClientID)
+            {
+                this.PacketType = packetType;
+                this.SourceClientID = sourceClientID;
+            }
+
+            public void Dispose()
+            {
+                Dispose(disposing: true);
+                GC.SuppressFinalize(this);
+            }
+
+            protected abstract void DisposeFunction();            
+
+            protected virtual void Dispose(bool disposing)
+            {
+                if (!this.disposed)
+                {
+                    if (disposing)
+                    {
+                        DisposeFunction();
+                    }
+
+                    disposed = true;
+                }
+            }
+        }
+
+        public class WritablePacket : Packet
+        {            
+            private List<byte> buffer;            
 
             public int Size { get => buffer.Count; }
 
-            internal WritablePacket(PacketType packetType)
+            internal WritablePacket(PacketType packetType, uint sourceClientID) : base(packetType, sourceClientID)
             {
-                buffer = new List<byte>();
-
-                this.PacketType = packetType;
+                buffer = new List<byte>();                
             }
 
-            internal WritablePacket(PacketType packetType, byte[] buffer)
+            internal WritablePacket(PacketType packetType, uint sourceClientID, byte[] buffer) : base(packetType, sourceClientID)
             {
                 this.buffer = new List<byte>();
-                this.buffer.AddRange(buffer);
-
-                this.PacketType = packetType;
+                this.buffer.AddRange(buffer);                
             }
 
             public byte[] ToArray() => buffer.ToArray();
@@ -166,39 +179,19 @@ namespace JustNet
                 networkData.WriteData(this);
             }
 
-            public void Dispose()
+            protected override void DisposeFunction()
             {
-                Dispose(disposing: true);
-                GC.SuppressFinalize(this);
-            }
-
-            protected virtual void Dispose(bool disposing)
-            {
-                if (!this.disposed)
-                {
-                    if (disposing)
-                    {
-                        buffer = null;
-                    }
-
-                    disposed = true;
-                }
+                buffer = null;
             }
         }
 
-        public class ReadablePacket : IDisposable
-        {
-            public readonly int SourceClientID;
-
-            internal PacketType PacketType;
-
+        public class ReadablePacket : Packet
+        {                    
             private byte[] receivedData;
             private uint readPosition;
-            private uint lastReadSize;
+            private uint lastReadSize;            
 
-            private bool disposed = false;
-
-            internal ReadablePacket(PacketType packetType, uint sourceClientID, byte[] data)
+            internal ReadablePacket(PacketType packetType, uint sourceClientID, byte[] data) : base(packetType, sourceClientID)
             {
                 if (data.Length > ReadBufferSize)
                 {
@@ -207,13 +200,10 @@ namespace JustNet
 
                 receivedData = data;
                 readPosition = 0;
-                lastReadSize = 0;
-
-                PacketType = packetType;
-                SourceClientID = (int)sourceClientID;
+                lastReadSize = 0;                
             }
 
-            internal ReadablePacket(PacketType packetType, uint sourceClientID, byte[] data, int startReadPosition)
+            internal ReadablePacket(PacketType packetType, uint sourceClientID, byte[] data, int startReadPosition) : base(packetType, sourceClientID)
             {
                 if (data.Length > ReadBufferSize)
                 {
@@ -222,10 +212,7 @@ namespace JustNet
 
                 receivedData = data;
                 readPosition = (uint)startReadPosition;
-                lastReadSize = 0;
-
-                PacketType = packetType;
-                SourceClientID = (int)sourceClientID;
+                lastReadSize = 0;                
             }
 
             public void Clear() => Array.Clear(receivedData, 0, receivedData.Length);
@@ -427,25 +414,11 @@ namespace JustNet
                 networkData.ReadData(this);
             }
 
-            public void Dispose()
+            protected override void DisposeFunction()
             {
-                Dispose(disposing: true);
-                GC.SuppressFinalize(this);
-            }
-
-            protected virtual void Dispose(bool disposing)
-            {
-                if (!this.disposed)
-                {
-                    if (disposing)
-                    {
-                        receivedData = null;
-                        readPosition = 0;
-                        lastReadSize = 0;
-                    }
-
-                    disposed = true;
-                }
+                receivedData = null;
+                readPosition = 0;
+                lastReadSize = 0;
             }
         }
     }
