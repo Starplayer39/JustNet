@@ -9,8 +9,8 @@
 
 using System.Net.Sockets;
 using System.Net;
-using static JustNet.NetworkRunner.Constant;
-using ClientIDQueue = JustNet.NetworkRunner.Utility.UniqueQueue<uint>;
+using static JustNet.Constant;
+using ClientIDQueue = JustNet.Utility.UniqueQueue<uint>;
 
 namespace JustNet
 {
@@ -28,7 +28,9 @@ namespace JustNet
 
                 public byte[] ReadBuffer;
 
-                public NetTcpClient(TcpClient tcpClient, NetworkStream networkStream, uint clientID, uint readBufferSize)
+                public bool IsReading;                
+
+                public void Init(TcpClient tcpClient, NetworkStream networkStream, uint clientID, uint readBufferSize)
                 {
                     TcpClient = tcpClient;
                     NetworkStream = networkStream;
@@ -36,6 +38,8 @@ namespace JustNet
                     ReadBufferSize = readBufferSize;
 
                     ReadBuffer = new byte[ReadBufferSize];
+
+                    IsReading = false;
                 }
             }
 
@@ -44,7 +48,7 @@ namespace JustNet
                 get => maxConnection;
                 set
                 {
-                    if (IsReady || value <= 0)
+                    if (IsReady)
                     {
                         return;
                     }
@@ -57,8 +61,8 @@ namespace JustNet
 
             public int ConnectedClientsCount { get => connectedClients.Count; }
 
-            public Action<int> OnClientConnected;
-            public Action<int> OnClientDisconnected;
+            public Action<uint> OnClientConnected;
+            public Action<uint> OnClientDisconnected;
             public Action<int, ReadablePacket> OnDataReceivedFromClient;
 
             private TcpListener tcpListener;
@@ -78,7 +82,7 @@ namespace JustNet
             protected override void Init()
             {
                 maxConnection = 5; // Default value
-                ID = Constant.SERVER_ID;
+                ClientID = Constant.SERVER_ID;
 
                 tcpListener = null;
                 connectedClients = new Dictionary<uint, NetTcpClient>();
@@ -87,15 +91,16 @@ namespace JustNet
                 IsReady = false;
                 IsReadable = false;
                 IsWritable = false;
-
-                OnStart = null;
-                OnStop = null;
+                
                 OnClientConnected = null;
                 OnClientDisconnected = null;
                 OnDataReceivedFromClient = null;
             }
 
-            public bool IsValidClient(uint clientID) => connectedClients.ContainsKey(clientID);
+            public bool IsValidClient(uint clientID)
+            {
+                return connectedClients.ContainsKey(clientID);
+            }
 
             public override bool Run()
             {
@@ -147,11 +152,13 @@ namespace JustNet
 
                 TcpClient tcpClient = tcpListener.EndAcceptTcpClient(asyncResult);
                 NetworkStream networkStream = tcpClient.GetStream();
-                NetTcpClient netTcpClient = new NetTcpClient(tcpClient, networkStream, clientID, readBufferSize);
+                NetTcpClient netTcpClient = connectedClients.ContainsKey(clientID) ? connectedClients[clientID] : new NetTcpClient();
+
+                netTcpClient.Init(tcpClient, networkStream, clientID, readBufferSize);
 
                 using (WritablePacket writablePacket = new WritablePacket(PacketType.SYSTEM, Constant.SERVER_ID))
                 {
-                    writablePacket.Write((int)ServerPacketInformation.SERVER_CLIENT_ID_SEND);
+                    writablePacket.Write((byte)ServerPacketInformation.SERVER_CLIENT_ID_SEND);
                     writablePacket.Write(clientID);
 
                     byte[] data = PacketPacker.PackOutgoingPacket(writablePacket);
@@ -195,22 +202,26 @@ namespace JustNet
                 {
                     if (readablePacket.PacketType != PacketType.SYSTEM || readablePacket.SourceClientID != netTcpClient.ClientID)
                     {
-                        return;
+                        throw new Exception(); // TODO: Error message
                     }
 
-                    ClientPacketInformation information = (ClientPacketInformation)readablePacket.ReadInt();
+                    ClientPacketInformation information = (ClientPacketInformation)readablePacket.ReadByte();
 
                     if (information == ClientPacketInformation.CLIENT_RECEIVED_ID_WELL)
                     {
                         IsReadable = true;
                         IsWritable = true;
 
-                        connectedClients.Add(netTcpClient.ClientID, netTcpClient);
+                        if (!connectedClients.ContainsKey(netTcpClient.ClientID))
+                        {
+                            connectedClients.Add(netTcpClient.ClientID, netTcpClient);
+                        }
+
                         Read(netTcpClient.ClientID);
 
                         if (OnClientConnected != null)
                         {
-                            OnClientConnected((int)netTcpClient.ClientID);
+                            OnClientConnected(netTcpClient.ClientID);
                         }
                     }
 
@@ -229,18 +240,19 @@ namespace JustNet
                 }
             }
 
-            public void Send(uint targetClientID, byte[] dataToSend)
+            public void Send(uint targetClientID, WritablePacket writablePacket)
             {
                 if (!IsWritable)
                 {
                     return;
                 }
 
+                byte[] dataToSend = writablePacket.ToArray();
+
                 Send(targetClientID, dataToSend, 0, dataToSend.Length);
             }
 
-            private void Send(uint targetClientID, byte[] dataToSend, int offset,
-                int count)
+            private void Send(uint targetClientID, byte[] dataToSend, int offset, int count)
             {
                 if (!IsValidClient(targetClientID))
                 {
@@ -253,12 +265,14 @@ namespace JustNet
                 networkStream.BeginWrite(dataToSend, offset, count, null, null);
             }
 
-            public void Broadcast(byte[] dataToSend)
+            public void Broadcast(WritablePacket writablePacket)
             {
-                if (!IsServerWritable)
+                if (!IsWritable)
                 {
                     return;
                 }
+
+                byte[] dataToSend = writablePacket.ToArray();
 
                 foreach (uint clientID in connectedClients.Keys)
                 {
@@ -268,7 +282,7 @@ namespace JustNet
 
             public void Read(uint targetClientID)
             {
-                if (!IsServerReadable)
+                if (!IsReadable || !IsValidClient(targetClientID))
                 {
                     return;
                 }
@@ -284,12 +298,29 @@ namespace JustNet
                 }
 
                 NetTcpClient netTcpClient = connectedClients[targetClientID];
+
+                if (netTcpClient.IsReading)
+                {
+                    return;
+                }
+
+                netTcpClient.IsReading = true;
+
                 NetworkStream networkStream = netTcpClient.NetworkStream;
 
                 Array.Clear(netTcpClient.ReadBuffer, 0, (int)netTcpClient.ReadBufferSize);
 
-                networkStream.BeginRead(netTcpClient.ReadBuffer, offset, count,
-                    new AsyncCallback(BeginReadCallback), netTcpClient);
+                networkStream.BeginRead(netTcpClient.ReadBuffer, offset, count,new AsyncCallback(BeginReadCallback), netTcpClient);
+            }
+
+            public void StopRead(uint targetClientID)
+            {
+                if (!IsValidClient(targetClientID))
+                {
+                    return;
+                }
+
+                connectedClients[targetClientID].IsReading = false;
             }
 
             private void BeginReadCallback(IAsyncResult asyncResult)
@@ -297,34 +328,35 @@ namespace JustNet
                 NetTcpClient netTcpClient = (NetTcpClient)asyncResult.AsyncState;
                 NetworkStream networkStream = netTcpClient.NetworkStream;
 
-                if (netTcpClient == null || !IsServerRunning)
+                if (netTcpClient == null || !IsRunning || !netTcpClient.IsReading)
                 {
                     return;
                 }
 
                 int readBytesCount = networkStream.EndRead(asyncResult);
 
-                ReadablePacket readablePacket = PacketPacker.PackIncomingPacket(readBytesCount, netTcpClient.ReadBuffer);
-
-                if (!IsValidClient((uint)readablePacket.SourceClientID))
+                using (ReadablePacket readablePacket = PacketPacker.PackIncomingPacket(readBytesCount, netTcpClient.ReadBuffer))
                 {
-                    return;
-                }
-
-                if (readablePacket.PacketType == PacketType.SYSTEM)
-                {
-                    ClientPacketInformation clientPacketInformation = (ClientPacketInformation)readablePacket.ReadInt();
-
-                    if (clientPacketInformation == ClientPacketInformation.CLIENT_DISCONNECT_REQUEST)
+                    if (!IsValidClient(readablePacket.SourceClientID))
                     {
-                        DisconnectClient(readablePacket.SourceClientID);
                         return;
                     }
-                }
 
-                if (readablePacket.PacketType == PacketType.CUSTOM || OnDataReceivedFromClient != null)
-                {
-                    OnDataReceivedFromClient(readBytesCount, readablePacket);
+                    if (readablePacket.PacketType == PacketType.SYSTEM)
+                    {
+                        ClientPacketInformation clientPacketInformation = (ClientPacketInformation)readablePacket.ReadByte();
+
+                        if (clientPacketInformation == ClientPacketInformation.CLIENT_DISCONNECT_REQUEST)
+                        {
+                            DisconnectClient(readablePacket.SourceClientID);
+                            return;
+                        }
+                    }
+
+                    else if (readablePacket.PacketType == PacketType.CUSTOM && OnDataReceivedFromClient != null)
+                    {
+                        OnDataReceivedFromClient(readBytesCount, readablePacket);
+                    }
                 }
 
                 Array.Clear(netTcpClient.ReadBuffer, 0, (int)netTcpClient.ReadBufferSize);
@@ -332,7 +364,7 @@ namespace JustNet
                 networkStream.BeginRead(netTcpClient.ReadBuffer, 0, (int)ReadBufferSize, new AsyncCallback(BeginReadCallback), netTcpClient);
             }
 
-            public bool DisconnectClient(int clientID)
+            public bool DisconnectClient(uint clientID)
             {
                 bool success = DisconnectClientInternal(clientID);
 
@@ -344,28 +376,28 @@ namespace JustNet
                 return success;
             }
 
-            private bool DisconnectClientInternal(int clientID)
-            {
-                uint id = (uint)clientID;
-
-                if (!IsValidClient(id))
+            private bool DisconnectClientInternal(uint clientID)
+            {                
+                if (!IsValidClient(clientID))
                 {
                     // No client exists with such ID
                     return false;
                 }
 
-                NetTcpClient netTcpClient = connectedClients[id];
+                NetTcpClient netTcpClient = connectedClients[clientID];
                 netTcpClient.NetworkStream?.Close();
                 netTcpClient.TcpClient?.Close();
+                netTcpClient.IsReading = false;
 
-                clientIDs.Enqueue(id);
-                clientIDs.OrderByAscending();
-                connectedClients.Remove(id);
+                netTcpClient.Init(null, null, clientID, readBufferSize);
+
+                clientIDs.Enqueue(clientID);
+                clientIDs.OrderByAscending();                
 
                 return true;
             }
 
-            public override bool Stop()
+            public override bool Stop(bool isForced = false)
             {
                 if (!IsReady)
                 {
@@ -374,14 +406,19 @@ namespace JustNet
 
                 foreach ((_, NetTcpClient netTcpClient) in connectedClients)
                 {
-                    using (WritablePacket writablePacket = new WritablePacket(PacketType.SYSTEM, Constant.SERVER_ID))
+                    if (!isForced)
                     {
-                        writablePacket.Write((int)ServerPacketInformation.SERVER_HAS_STOPPED);
-                        netTcpClient.NetworkStream.Write(PacketPacker.PackOutgoingPacket(writablePacket));
+                        using (WritablePacket writablePacket = new WritablePacket(PacketType.SYSTEM, Constant.SERVER_ID))
+                        {
+                            writablePacket.Write((int)ServerPacketInformation.SERVER_HAS_STOPPED);
+                            netTcpClient.NetworkStream.Write(PacketPacker.PackOutgoingPacket(writablePacket));
+                        }
                     }
 
                     netTcpClient.NetworkStream?.Close();
                     netTcpClient.TcpClient?.Close();
+
+                    netTcpClient.IsReading = false;
                 }
 
                 if (OnStop != null)

@@ -21,7 +21,7 @@ namespace JustNet
     using System;    
     using System.Text;
     using System.Collections.Generic;    
-    using PacketType = NetworkRunner.Constant.PacketType;
+    using PacketType = JustNet.Constant.PacketType;
 
     public static class PacketPacker
     {        

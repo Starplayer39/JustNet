@@ -16,7 +16,7 @@ namespace JustNet
                 get => readBufferSize;
                 set
                 {
-                    if (IsRunning || value <= 0)
+                    if (IsRunning)
                     {
                         return;
                     }
@@ -40,7 +40,7 @@ namespace JustNet
                 }
             }
 
-            public uint ID { get; protected set; }
+            public uint ClientID { get; protected set; }
 
             public bool IsReady { get; protected set; }
 
@@ -54,7 +54,7 @@ namespace JustNet
             public Action OnStop;
 
             protected uint port;
-            protected uint readBufferSize;
+            protected uint readBufferSize;         
 
             internal Common()
             {
@@ -92,7 +92,7 @@ namespace JustNet
 
             public abstract bool Run();
 
-            public abstract bool Stop();
+            public abstract bool Stop(bool isForced = false);
         }
     }
 }

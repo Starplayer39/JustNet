@@ -14,7 +14,7 @@ namespace JustNet
     using System.Net;
     using System.Net.Sockets;
     using System.Collections.Generic;
-    using static JustNet.NetworkRunner.Constant;    
+    using static JustNet.Constant;    
 
     public sealed partial class NetworkRunner
     {
@@ -23,7 +23,7 @@ namespace JustNet
         public bool IsServer { get => NetworkType == NetworkRunningType.Server; }
         public bool IsClient { get => NetworkType == NetworkRunningType.Client; }
 
-        public bool IsNetworkRunning { get => IsServer ? serverRunner.IsRunning : clientRunner.IsRunning; }                     
+        private bool IsNetworkRunning { get => IsServer ? serverRunner.IsRunning : clientRunner.IsRunning; }                     
 
         public Server ServerRunner
         {
@@ -36,7 +36,7 @@ namespace JustNet
 
                 if (serverRunner == null)
                 {
-                    throw new Exception();
+                    throw new Exception(); // TODO: Error message
                 }
 
                 return serverRunner;
@@ -61,7 +61,7 @@ namespace JustNet
 
                 if (clientRunner == null)
                 {
-                    throw new Exception();
+                    throw new Exception(); // TODO: Error message
                 }
 
                 return clientRunner;
@@ -74,105 +74,7 @@ namespace JustNet
         }
 
         private Client clientRunner;
-    }                   
-
-    public sealed partial class NetworkRunner
-    {
-        public static class Constant
-        {
-            public enum NetworkRunningType
-            {
-                Server,
-                Client
-            }
-
-            public enum PacketType
-            {
-                SYSTEM = 'S', // Packet sent by JustNet
-                CUSTOM = 'C' // Packet sent by user
-            }
-
-            public enum ServerPacketInformation
-            {
-                SERVER_CLIENT_ID_SEND = 1,
-                SERVER_HAS_STOPPED = 2
-            }
-
-            public enum ClientPacketInformation
-            {
-                CLIENT_RECEIVED_ID_WELL = -1,
-                CLIENT_DISCONNECT_REQUEST = -2
-            }
-
-            public const uint SERVER_ID = 0;
-            public const uint DEFAULT_PORT = 12345;
-            public const int DEFAULT_READ_BUFFER_SIZE = 1024;            
-        }
-
-        internal static class Utility
-        {
-            public static IPAddress GetLocalIPAddress()
-            {
-                IPHostEntry host = Dns.GetHostEntry(Dns.GetHostName());
-
-                foreach (IPAddress ipAddress in host.AddressList)
-                {
-                    if (ipAddress.AddressFamily == AddressFamily.InterNetwork)
-                    {
-                        return ipAddress;
-                    }
-                }
-
-                return null;
-            }
-
-            public class UniqueQueue<T>
-            {
-                private readonly Queue<T> queue;
-
-                public int Count { get => queue.Count; }
-
-                public bool Contains(T data) => queue.Contains(data);
-
-                public UniqueQueue()
-                {
-                    queue = new Queue<T>();
-                }
-
-                public void Enqueue(T data)
-                {
-                    if (queue.Contains(data))
-                    {
-                        return;
-                    }
-
-                    queue.Enqueue(data);
-                }
-
-                public T Dequeue()
-                {
-                    return queue.Dequeue();
-                }
-
-                public void OrderByAscending()
-                {
-                    Queue<T> temp = new Queue<T>();
-
-                    foreach (T item in queue.OrderBy(x => x))
-                    {
-                        temp.Enqueue(item);
-                    }
-
-                    queue.Clear();
-
-                    foreach (T item in temp)
-                    {
-                        queue.Enqueue(item);
-                    }
-                }
-            }
-        }
-    }
+    }                       
 }
 
 #pragma warning restore CS8618 // Non-nullable variable must contain a non-null value when exiting constructor. Consider declaring it as nullable

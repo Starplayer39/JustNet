@@ -1,4 +1,4 @@
-﻿using static JustNet.NetworkRunner.Constant;
+﻿using static JustNet.Constant;
 
 namespace JustNet
 {
