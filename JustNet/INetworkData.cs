@@ -6,10 +6,7 @@
 */
 
 namespace JustNet
-{
-    using WritablePacket = PacketPacker.WritablePacket;
-    using ReadablePacket = PacketPacker.ReadablePacket;
-
+{    
     public interface INetworkData
     {
         public void WriteData(WritablePacket writablePacket);
