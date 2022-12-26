@@ -7,8 +7,8 @@
 
 #pragma warning disable CS8618 // Non-nullable variable must contain a non-null value when exiting constructor. Consider declaring it as nullable
 
-using System.Net.Sockets;
 using System.Net;
+using System.Net.Sockets;
 using static JustNet.Constant;
 using ClientIDQueue = JustNet.Utility.UniqueQueue<uint>;
 
@@ -28,7 +28,7 @@ namespace JustNet
 
                 public byte[] ReadBuffer;
 
-                public bool IsReading;                
+                public bool IsReading;
 
                 public void Init(TcpClient tcpClient, NetworkStream networkStream, uint clientID, uint readBufferSize)
                 {
@@ -91,7 +91,7 @@ namespace JustNet
                 IsReady = false;
                 IsReadable = false;
                 IsWritable = false;
-                
+
                 OnClientConnected = null;
                 OnClientDisconnected = null;
                 OnDataReceivedFromClient = null;
@@ -247,7 +247,7 @@ namespace JustNet
                     return;
                 }
 
-                byte[] dataToSend = writablePacket.ToArray();
+                byte[] dataToSend = PacketPacker.PackOutgoingPacket(writablePacket);
 
                 Send(targetClientID, dataToSend, 0, dataToSend.Length);
             }
@@ -272,7 +272,7 @@ namespace JustNet
                     return;
                 }
 
-                byte[] dataToSend = writablePacket.ToArray();
+                byte[] dataToSend = PacketPacker.PackOutgoingPacket(writablePacket);
 
                 foreach (uint clientID in connectedClients.Keys)
                 {
@@ -310,7 +310,7 @@ namespace JustNet
 
                 Array.Clear(netTcpClient.ReadBuffer, 0, (int)netTcpClient.ReadBufferSize);
 
-                networkStream.BeginRead(netTcpClient.ReadBuffer, offset, count,new AsyncCallback(BeginReadCallback), netTcpClient);
+                networkStream.BeginRead(netTcpClient.ReadBuffer, offset, count, new AsyncCallback(BeginReadCallback), netTcpClient);
             }
 
             public void StopRead(uint targetClientID)
@@ -377,7 +377,7 @@ namespace JustNet
             }
 
             private bool DisconnectClientInternal(uint clientID)
-            {                
+            {
                 if (!IsValidClient(clientID))
                 {
                     // No client exists with such ID
@@ -392,7 +392,7 @@ namespace JustNet
                 netTcpClient.Init(null, null, clientID, readBufferSize);
 
                 clientIDs.Enqueue(clientID);
-                clientIDs.OrderByAscending();                
+                clientIDs.OrderByAscending();
 
                 return true;
             }

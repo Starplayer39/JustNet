@@ -14,7 +14,7 @@ namespace JustNet
     public sealed partial class NetworkRunner
     {
         public sealed class Client : Common
-        {                                                
+        {
             public Action OnConnectedToServer;
             public Action OnDisconnectedFromServer;
             public Action<int, ReadablePacket> OnDataReceivedFromServer;
@@ -27,7 +27,7 @@ namespace JustNet
 
             private byte[] readBuffer;
 
-            public Client() : base() => Init();            
+            public Client() : base() => Init();
 
             protected override void Init()
             {
@@ -48,7 +48,7 @@ namespace JustNet
                 if (IsReady)
                 {
                     return false;
-                }                
+                }
 
                 IPAddress iPAddress = System.Net.IPAddress.Parse(this.IPAddress);
                 IPEndPoint iPEndPoint = new IPEndPoint(iPAddress, (int)this.port);
@@ -88,7 +88,7 @@ namespace JustNet
                     if (readablePacket.PacketType != PacketType.SYSTEM || readablePacket.SourceClientID != Constant.SERVER_ID)
                     {
                         return;
-                    }
+                    }                    
 
                     ServerPacketInformation information = (ServerPacketInformation)readablePacket.ReadByte();
 
@@ -118,7 +118,7 @@ namespace JustNet
 
                     else
                     {
-                        networkStream.BeginRead(readBuffer, 0, (int)readBufferSize,new AsyncCallback(ClientIDReceiveCallback), null);
+                        networkStream.BeginRead(readBuffer, 0, (int)readBufferSize, new AsyncCallback(ClientIDReceiveCallback), null);
                     }
                 }
             }
@@ -130,7 +130,7 @@ namespace JustNet
                     return;
                 }
 
-                byte[] dataToSend = writablePacket.ToArray();
+                byte[] dataToSend = PacketPacker.PackOutgoingPacket(writablePacket);
 
                 Send(dataToSend, 0, dataToSend.Length);
             }
@@ -152,8 +152,11 @@ namespace JustNet
 
             private void Read(int offset, int count)
             {
+                if (IsReading) return;
+
                 Array.Clear(readBuffer, 0, (int)readBufferSize);
 
+                IsReading = true;
                 networkStream.BeginRead(readBuffer, offset, count, new AsyncCallback(BeginReadCallback), networkStream);
             }
 
@@ -229,7 +232,7 @@ namespace JustNet
                 IsReady = false;
 
                 return true;
-            }            
+            }
         }
     }
 }

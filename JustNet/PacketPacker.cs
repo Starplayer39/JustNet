@@ -40,17 +40,17 @@ namespace JustNet
 
         internal static ReadablePacket PackIncomingPacket(int readBytesCount, byte[] data)
         {
-            uint clientID = BitConverter.ToUInt32(data, sizeof(char));
-            PacketType packetType = (PacketType)BitConverter.ToChar(data, 0);                        
+            uint clientID = BitConverter.ToUInt32(data, 0);
+            PacketType packetType = (PacketType)BitConverter.ToChar(data, sizeof(uint));                        
             const int read = sizeof(char) + sizeof(uint);
             ArraySegment<byte> remained = new ArraySegment<byte>(data, read, readBytesCount - read);
 
             return new ReadablePacket(packetType, clientID, remained.ToArray());
         }       
 
-        public static WritablePacket GetWritablePacket(uint sourceClientID) => new WritablePacket(PacketType.CUSTOM, sourceClientID);
+        public static WritablePacket GetWritablePacket() => new WritablePacket(PacketType.CUSTOM, NetworkRunner.Singleton.ClientID);
 
-        public static WritablePacket GetWritablePacket(uint sourceClientID, byte[] data) => new WritablePacket(PacketType.CUSTOM, sourceClientID, data);
+        public static WritablePacket GetWritablePacket(byte[] data) => new WritablePacket(PacketType.CUSTOM, NetworkRunner.Singleton.ClientID, data);
     }    
 }
 

@@ -9,27 +9,54 @@
 
 namespace JustNet
 {
-    using System;
-    using System.Linq;
-    using System.Net;
-    using System.Net.Sockets;
-    using System.Collections.Generic;
+    using System;    
     using static JustNet.Constant;    
 
     public sealed partial class NetworkRunner
     {
+        public static NetworkRunner Singleton;
+
         public NetworkRunningType NetworkType { get; private set; }
 
         public bool IsServer { get => NetworkType == NetworkRunningType.Server; }
         public bool IsClient { get => NetworkType == NetworkRunningType.Client; }
 
+        public uint ClientID
+        {
+            get
+            {
+                if (IsServer && ServerRunner != null)
+                {
+                    return ServerRunner.ClientID;
+                }
+
+                else if (IsClient && ClientRunner != null)
+                {
+                    return ClientRunner.ClientID;
+                }
+
+                else
+                {
+                    throw new Exception(); // TODO: Error message
+                }
+            }
+        }
+
         private bool IsNetworkRunning { get => IsServer ? serverRunner.IsRunning : clientRunner.IsRunning; }                     
+
+        public NetworkRunner(NetworkRunningType networkRunningType)
+        {
+            if (Singleton == null) Singleton = this;
+            else throw new Exception($"Multiple objects of type {nameof(NetworkRunner)}");
+
+            NetworkType = networkRunningType;
+        }
 
         public Server ServerRunner
         {
             get
             {
-                if (ServerRunner == null && !IsNetworkRunning && !IsClient)
+                /*if (ServerRunner == null && !IsNetworkRunning && !IsClient)
                 {
                     serverRunner = new Server();
                 }
@@ -37,7 +64,9 @@ namespace JustNet
                 if (serverRunner == null)
                 {
                     throw new Exception(); // TODO: Error message
-                }
+                }*/
+
+                if (serverRunner == null) return serverRunner = new Server();
 
                 return serverRunner;
             }
@@ -54,7 +83,7 @@ namespace JustNet
         {
             get
             {
-                if (clientRunner == null && !IsNetworkRunning && !IsServer)
+                /*if (clientRunner == null && !IsNetworkRunning && !IsServer)
                 {
                     clientRunner = new Client();
                 }
@@ -62,7 +91,9 @@ namespace JustNet
                 if (clientRunner == null)
                 {
                     throw new Exception(); // TODO: Error message
-                }
+                }*/
+
+                if (clientRunner == null) clientRunner = new Client();
 
                 return clientRunner;
             }
