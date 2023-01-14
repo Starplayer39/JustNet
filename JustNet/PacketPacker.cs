@@ -30,6 +30,8 @@ namespace JustNet
         
         internal static void Initialize(NetworkRunner networkRunner)
         {
+            if (networkRunner == null) { throw new ArgumentNullException(nameof(networkRunner)); }
+
             PacketPacker.networkRunner = networkRunner;
         }
 

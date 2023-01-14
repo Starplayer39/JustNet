@@ -57,6 +57,8 @@ namespace JustNet
                 }
             }
 
+            public IPAddress ServerIPAddress { get => IsReady ? serverIPAddress : null; }
+
             public bool IsFull { get => clientIDs.Count <= 0; }
 
             public int ConnectedClientsCount { get => connectedClients.Count; }
@@ -68,6 +70,8 @@ namespace JustNet
             private TcpListener tcpListener;
             private ClientIDQueue clientIDs;
             private Dictionary<uint, NetTcpClient> connectedClients;
+
+            private IPAddress serverIPAddress;
 
             private uint maxConnection;
 
@@ -109,14 +113,14 @@ namespace JustNet
                     return false;
                 }
 
-                IPAddress iPAddress = Utility.GetLocalIPAddress();
+                IPAddress serverIPAddress = Utility.GetLocalIPAddress();
 
-                if (iPAddress == null)
+                if (serverIPAddress == null)
                 {
                     return false;
                 }
 
-                IPEndPoint ipEndPoint = new IPEndPoint(iPAddress, (int)port);
+                IPEndPoint ipEndPoint = new IPEndPoint(serverIPAddress, (int)port);
 
                 for (uint i = Constant.SERVER_ID + 1; i <= MaxConnection; i++)
                 {
@@ -132,6 +136,7 @@ namespace JustNet
                 }
 
                 IsReady = true;
+                this.serverIPAddress = serverIPAddress;
 
                 if (!IsFull)
                 {

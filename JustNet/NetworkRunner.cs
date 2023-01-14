@@ -45,18 +45,18 @@ namespace JustNet
         public NetworkRunner(NetworkRunningType networkRunningType)
         {
             NetworkType = networkRunningType;
+
+            if (networkRunningType == NetworkRunningType.Server) { ServerRunner = new Server(); }
+            else { ClientRunner = new Client(); }
+
+            PacketPacker.Initialize(this);
         }
 
         public Server ServerRunner
         {
             get
             {
-                /*if (ServerRunner == null && !IsNetworkRunning && !IsClient)
-                {
-                    serverRunner = new Server();
-                }*/
-
-                if (!IsServer)
+                if (IsNetworkRunning && !IsServer)
                 {
                     throw new Exception(); // TODO: Error message
                 }
@@ -78,12 +78,7 @@ namespace JustNet
         {
             get
             {
-                /*if (clientRunner == null && !IsNetworkRunning && !IsServer)
-                {
-                    clientRunner = new Client();
-                }*/
-
-                if (!IsClient)
+                if (IsNetworkRunning && !IsClient)
                 {
                     throw new Exception(); // TODO: Error message
                 }
