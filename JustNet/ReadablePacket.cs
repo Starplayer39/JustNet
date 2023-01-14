@@ -1,4 +1,11 @@
-﻿using System.Text;
+﻿/*
+ * JustNet - Just some code for studying part of C# TCP networking
+ * 
+ * Copyright(c) 2022, Starplayer39
+ * The project is under BSD 3-Clause License. Please see the LICENSE.txt
+*/
+
+using System.Text;
 using static JustNet.Constant;
 
 namespace JustNet
