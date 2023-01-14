@@ -54,8 +54,9 @@ namespace JustNet
             public Action OnStop;
 
             protected uint port;
-            protected uint readBufferSize;         
+            protected uint readBufferSize;
 
+#pragma warning disable CS8618 // Non-nullable variable must contain a non-null value when exiting constructor. Consider declaring it as nullable
             internal Common()
             {
                 ReadBufferSize = Constant.DEFAULT_READ_BUFFER_SIZE;
@@ -87,6 +88,7 @@ namespace JustNet
                 OnStart = null;
                 OnStop = null;
             }
+#pragma warning restore CS8618 // Non-nullable variable must contain a non-null value when exiting constructor. Consider declaring it as nullable
 
             protected abstract void Init();
 
