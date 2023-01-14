@@ -19,13 +19,19 @@
 namespace JustNet
 {
     using System;    
-    using System.Text;
     using System.Collections.Generic;    
     using PacketType = JustNet.Constant.PacketType;
 
     public static class PacketPacker
     {        
-        internal static uint ReadBufferSize = 1024;        
+        internal static uint ReadBufferSize = 1024;
+
+        private static NetworkRunner networkRunner;
+        
+        internal static void Initialize(NetworkRunner networkRunner)
+        {
+            PacketPacker.networkRunner = networkRunner;
+        }
 
         internal static byte[] PackOutgoingPacket(WritablePacket writablePacket)
         {
@@ -48,9 +54,9 @@ namespace JustNet
             return new ReadablePacket(packetType, clientID, remained.ToArray());
         }       
 
-        public static WritablePacket GetWritablePacket() => new WritablePacket(PacketType.CUSTOM, NetworkRunner.Singleton.ClientID);
+        public static WritablePacket GetWritablePacket() => new WritablePacket(PacketType.CUSTOM, networkRunner.ClientID);
 
-        public static WritablePacket GetWritablePacket(byte[] data) => new WritablePacket(PacketType.CUSTOM, NetworkRunner.Singleton.ClientID, data);
+        public static WritablePacket GetWritablePacket(byte[] data) => new WritablePacket(PacketType.CUSTOM, networkRunner.ClientID, data);
     }    
 }
 

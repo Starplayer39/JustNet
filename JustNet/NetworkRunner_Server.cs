@@ -240,6 +240,23 @@ namespace JustNet
                 }
             }
 
+            public void FilteredBroadcast(Func<uint, bool> filter, WritablePacket writablePacket)
+            {
+                if (!IsWritable)
+                {
+                    return;
+                }
+
+                byte[] dataToSend = PacketPacker.PackOutgoingPacket(writablePacket);
+
+                foreach (uint clientID in connectedClients.Keys)
+                {
+                    if (!filter(clientID)) continue;
+
+                    Send(clientID, dataToSend, 0, dataToSend.Length);
+                }
+            }
+
             public void Send(uint targetClientID, WritablePacket writablePacket)
             {
                 if (!IsWritable)

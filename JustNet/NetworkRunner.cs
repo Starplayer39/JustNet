@@ -14,8 +14,6 @@ namespace JustNet
 
     public sealed partial class NetworkRunner
     {
-        public static NetworkRunner Singleton;
-
         public NetworkRunningType NetworkType { get; private set; }
 
         public bool IsServer { get => NetworkType == NetworkRunningType.Server; }
@@ -42,13 +40,10 @@ namespace JustNet
             }
         }
 
-        private bool IsNetworkRunning { get => IsServer ? serverRunner.IsRunning : clientRunner.IsRunning; }                     
+        public bool IsNetworkRunning { get => IsServer ? serverRunner.IsRunning : clientRunner.IsRunning; }                     
 
         public NetworkRunner(NetworkRunningType networkRunningType)
         {
-            if (Singleton == null) Singleton = this;
-            else throw new Exception($"Multiple objects of type {nameof(NetworkRunner)}");
-
             NetworkType = networkRunningType;
         }
 
@@ -59,12 +54,12 @@ namespace JustNet
                 /*if (ServerRunner == null && !IsNetworkRunning && !IsClient)
                 {
                     serverRunner = new Server();
-                }
+                }*/
 
-                if (serverRunner == null)
+                if (!IsServer)
                 {
                     throw new Exception(); // TODO: Error message
-                }*/
+                }
 
                 if (serverRunner == null) return serverRunner = new Server();
 
@@ -86,12 +81,12 @@ namespace JustNet
                 /*if (clientRunner == null && !IsNetworkRunning && !IsServer)
                 {
                     clientRunner = new Client();
-                }
+                }*/
 
-                if (clientRunner == null)
+                if (!IsClient)
                 {
                     throw new Exception(); // TODO: Error message
-                }*/
+                }
 
                 if (clientRunner == null) clientRunner = new Client();
 
