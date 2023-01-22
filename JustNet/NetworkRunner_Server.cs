@@ -411,7 +411,8 @@ namespace JustNet
                 netTcpClient.TcpClient?.Close();
                 netTcpClient.IsReading = false;
 
-                netTcpClient.Init(null, null, clientID, readBufferSize);
+                //netTcpClient.Init(null, null, clientID, readBufferSize);
+                connectedClients.Remove(clientID);
 
                 clientIDs.Enqueue(clientID);
                 clientIDs.OrderByAscending();
